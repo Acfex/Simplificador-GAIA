@@ -71,26 +71,189 @@ Fecha fin: dd/mm/aaaa"></textarea>
 <footer>Dr Gimeno</footer>
 
 <script>
+document.addEventListener('DOMContentLoaded', () => {
   const $ = id => document.getElementById(id);
-  const AFTER_TOKENS=[/\\bCOMPR(IMIDOS)?\\b/i,/\\bCÁPS(ULAS)?\\b|CAPS(ULAS)?/i,/\\bTABLETAS?\\b/i,/\\bSOLUCI[ÓO]N\\b/i,/\\bSUSPENSI[ÓO]N\\b/i,/\\bRECUBIER(T[AO]S?)?\\b/i,/\\bGASTRORRESIST/i,/\\bEFERVESCENTES?\\b/i,/\\bJERINGAS?\\b/i,/\\bVIALES?\\b/i,/\\bAMPOLLAS?\\b/i,/\\bSOBRES?\\b/i,/\\bGOTAS?\\b/i,/\\bSPRAY\\b/i,/\\bINHALADOR(ES)?\\b/i,/\\bPARCHES?\\b/i,/\\bCREMA\\b/i,/\\bPOMADA\\b/i,/\\bCOLIRIO\\b/i];
-  const DOSE_RE=/(?:(?:\\d+(?:[.,]\\d+)?)\\s*(?:MG|G|MCG|µG|UG|U\\.?I\\.?|UI|%))(?:\\s*\\([^)]*?(?:\\d+(?:[.,]\\d+)?\\s*(?:MG|G|MCG|µG|UG|U\\.?I\\.?|UI|%))[^)]*\\))?(?:\\s*\\/\\s*\\d+(?:[.,]\\d+)?\\s*(?:MG|G|MCG|µG|UG|U\\.?I\\.?|UI|%))*/gi;
-  const ML_ONLY_RE=/\\b\\d+(?:[.,]\\d+)?\\s*mL\\b/i;
-  const NAME_NORMALIZERS=[{rx:/\\bSINTROM\\s+UNO\\s+GEIGY\\b/i,to:'SINTROM'}];
-  const normalizeBrand=s=>NAME_NORMALIZERS.reduce((t,{rx,to})=>t.replace(rx,to),s);
-  const ABX_PATTERNS=[/AMOX/i,/AMOXI/i,/CLAVUL/i,/AMPI/i,/PIPERACIL/i,/TAZO/i,/CEF[AOUEIY]/i,/CEFUROX/i,/CEFTRIAX/i,/CEFTAZ/i,/CEFIX/i,/CEFEP/i,/AZITRO/i,/CLARITRO/i,/ERITRO/i,/LEVOFLOX/i,/MOXIFLOX/i,/CIPROFLOX/i,/DOXI/i,/TETRACICL/i,/MINOCLI?N/i,/METRONIDAZ/i,/TINIDAZ/i,/COTRIM/i,/TRIMETOPR/i,/SULFAM/i,/FOSFOMI/i,/NITROFURAN/i,/VANCOM/i,/LINEZOL/i,/GENTA?MIC/i,/AMIKAC/i,/TOBRA/i,/RIFAMP/i,/COLIST/i];
-  const isAntibiotic=n=>ABX_PATTERNS.some(r=>r.test(n));
-  const toUpperEs=s=>s.replaceAll('á','Á').replaceAll('é','É').replaceAll('í','Í').replaceAll('ó','Ó').replaceAll('ú','Ú').replaceAll('ü','Ü').replaceAll('ñ','Ñ').toUpperCase();
-  function parseDateDMY(s){const m=/([0-3]?\\d)[\\/-]([01]?\\d)[\\/-](\\d{4})/.exec(s||'');if(!m)return null;const d=+m[1],mo=+m[2]-1,y=+m[3];const dt=new Date(y,mo,d);return dt&&dt.getFullYear()===y&&dt.getMonth()===mo&&dt.getDate()===d?dt:null;}
-  const daysInclusive=(a,b)=>Math.round((new Date(b.getFullYear(),b.getMonth(),b.getDate())-new Date(a.getFullYear(),a.getMonth(),a.getDate()))/86400000)+1;
-  function findCutIndex(name){let cut=name.length;for(const rx of AFTER_TOKENS){const m=rx.exec(name);if(m)cut=Math.min(cut,m.index);}const slashPack=/\\s\\/\\s*\\d+\\s+\\S+/i.exec(name);if(slashPack)cut=Math.min(cut,slashPack.index);return cut;}
-  function recortarNombreBruto(line){const raw=line.replace(/^\\s*Terapia\\/Medicamento:\\s*/i,'').trim();const pre=normalizeBrand(raw.slice(0,findCutIndex(raw)));let last=null,m;DOSE_RE.lastIndex=0;while((m=DOSE_RE.exec(pre)))last=m;let base=last?pre.slice(0,last.index+last[0].length):pre;if(ML_ONLY_RE.test(base)&&!/(MG|G|MCG|µG|UG|U\\.?I\\.?|UI|%)/i.test(base))base=pre;base=base.replace(/\\s*[\\.;,:-]*\\s*$/,'');return toUpperEs(base)+'.';}
-  function cleanPosologia(line){let pos=line.replace(/^\\s*Posolog[íi]a\\/Observaciones:\\s*/i,'').trim();pos=pos.replace(/\\bCR[ÓO]NICO\\b/gi,' ').replace(/\\s{2,}/g,' ').trim();const dur=/durante\\s+(\\d{1,3})\\s*d[ií]as?/i.exec(pos);const explicitDays=dur?parseInt(dur[1],10):null;pos=pos.replace(/\\s*durante\\s+\\d{1,3}\\s*d[ií]as?/gi,'').trim();pos=pos.replace(/capsulas?/gi,m=>m.toUpperCase()).replace(/c[áa]psulas?/gi,m=>m.toUpperCase()).replace(/comprimidos?/gi,m=>m.toUpperCase()).replace(/tabletas?/gi,m=>m.toUpperCase()).replace(/gotas?/gi,m=>m.toUpperCase()).replace(/sobres?/gi,m=>m.toUpperCase()).replace(/iny(e|é)cciones?/gi,m=>m.toUpperCase()).replace(/\\bml\\b/gi,'mL').replace(/\\bmg\\b/gi,'MG').replace(/\\bmcg\\b/gi,'MCG').replace(/\\bµg\\b/gi,'µG').replace(/\\bui\\b/gi,'UI').replace(/u\\.i\\./gi,'U.I.');pos=pos.replace(/\\bd[ií]a\\s*\\/\\s*s(?:\\s*\\/\\s*s)?\\b/gi,'días').replace(/\\bd[ií]a\\/s\\b/gi,'días').replace(/\\bd[ií]as\\b/gi,'días');if(!/[.!?]$/.test(pos))pos+='.';return{pos,explicitDays};}
-  function parseBlock(block){const lines=block.split(/\\n+/).map(s=>s.trim()).filter(Boolean);const nL=lines.find(s=>/^Terapia\\/Medicamento:/i.test(s));const pL=lines.find(s=>/^Posolog[íi]a\\/Observaciones:/i.test(s));const fi=lines.find(s=>/^Fecha\\s+inicio:/i.test(s));const ff=lines.find(s=>/^Fecha\\s+fin:/i.test(s));if(!nL||!pL)return null;const name=recortarNombreBruto(nL);const{pos,explicitDays}=cleanPosologia(pL);const start=fi?parseDateDMY(fi.split(':')[1]):null;const end=ff?parseDateDMY(ff.split(':')[1]):null;const abx=isAntibiotic(name);let totalDays=null;if(Number.isInteger(explicitDays))totalDays=explicitDays;else if(start&&end)totalDays=daysInclusive(start,end);let progress='';if(totalDays&&totalDays<=30&&start){const today=new Date();const current=Math.min(Math.max(1,daysInclusive(start,today)),totalDays);progress=` (día ${current} de ${totalDays})`;}return`-${name} ${pos}${progress}`.replace(/\\s+\\./g,'.');}
-  function splitBlocks(text){return text.split(/(?=\\n?\\s*Terapia\\/Medicamento\\s*:)/i).map(s=>s.trim()).filter(s=>/^Terapia\\/Medicamento\\s*:/i.test(s));}
-  function simplify(text){const blocks=splitBlocks(text);const out=[];let i=0;for(const b of blocks){i++;const r=parseBlock(b);if(r)out.push(r);$('bar').style.width=`${Math.round(i/Math.max(1,blocks.length)*100)}%`;}return out.join('\\n');}
-  $('run').onclick=()=>{const res=simplify($('input').value.trim());$('out').textContent=res||'Sin resultados';$('count').textContent=(res?res.split(/\\n/).length:0)+' líneas';$('ts').textContent=new Date().toLocaleString();};
-  $('copy').onclick=()=>navigator.clipboard.writeText(($('out').textContent||''));$('txt').onclick=()=>{const blob=new Blob([$('out').textContent||''],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='simplificado.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);};
-  $('clear').onclick=()=>{$('input').value='';$('out').textContent='';$('count').textContent='0 líneas';$('bar').style.width='0%';};
+
+  // Tokens d’envàs/forma per tallar després de la darrera dosi
+  const AFTER_TOKENS = [
+    /\bCOMPR(IMIDOS)?\b/i, /\bCÁPS(ULAS)?\b|CAPS(ULAS)?/i, /\bTABLETAS?\b/i,
+    /\bSOLUCI[ÓO]N\b/i, /\bSUSPENSI[ÓO]N\b/i, /\bRECUBIER(T[AO]S?)?\b/i, /\bGASTRORRESIST/i,
+    /\bEFERVESCENTES?\b/i, /\bJERINGAS?\b/i, /\bVIALES?\b/i, /\bAMPOLLAS?\b/i,
+    /\bSOBRES?\b/i, /\bGOTAS?\b/i, /\bSPRAY\b/i, /\bINHALADOR(ES)?\b/i, /\bPARCHES?\b/i,
+    /\bCREMA\b/i, /\bPOMADA\b/i, /\bCOLIRIO\b/i
+  ];
+
+  // Dosis vàlides amb combinacions i parèntesi
+  const DOSE_RE = /(?:(?:\d+(?:[.,]\d+)?)\s*(?:MG|G|MCG|µG|UG|U\.?I\.?|UI|%))(?:\s*\([^)]*?(?:\d+(?:[.,]\d+)?\s*(?:MG|G|MCG|µG|UG|U\.?I\.?|UI|%))[^)]*\))?(?:\s*\/\s*\d+(?:[.,]\d+)?\s*(?:MG|G|MCG|µG|UG|U\.?I\.?|UI|%))*/gi;
+
+  // No considerar mL com a dosi final
+  const ML_ONLY_RE = /\b\d+(?:[.,]\d+)?\s*mL\b/i;
+
+  // Normalitzacions de marca → curt
+  const NAME_NORMALIZERS = [
+    { rx: /\bSINTROM\s+UNO\s+GEIGY\b/i, to: 'SINTROM' }
+  ];
+  const normalizeBrand = s => NAME_NORMALIZERS.reduce((t,{rx,to})=>t.replace(rx,to), s);
+
+  // Léxic d’antibiòtics
+  const ABX_PATTERNS = [
+    /AMOX/i, /AMOXI/i, /CLAVUL/i, /AMPI/i, /PIPERACIL/i, /TAZO/i,
+    /CEF[AOUEIY]/i, /CEFUROX/i, /CEFTRIAX/i, /CEFTAZ/i, /CEFIX/i, /CEFEP/i,
+    /AZITRO/i, /CLARITRO/i, /ERITRO/i,
+    /LEVOFLOX/i, /MOXIFLOX/i, /CIPROFLOX/i,
+    /DOXI/i, /TETRACICL/i, /MINOCLI?N/i,
+    /METRONIDAZ/i, /TINIDAZ/i,
+    /COTRIM/i, /TRIMETOPR/i, /SULFAM/i,
+    /FOSFOMI/i, /NITROFURAN/i,
+    /VANCOM/i, /LINEZOL/i, /GENTA?MIC/i, /AMIKAC/i, /TOBRA/i,
+    /RIFAMP/i, /COLIST/i
+  ];
+  const isAntibiotic = n => ABX_PATTERNS.some(r => r.test(n));
+
+  const toUpperEs = s => s
+    .replaceAll('á','Á').replaceAll('é','É').replaceAll('í','Í')
+    .replaceAll('ó','Ó').replaceAll('ú','Ú').replaceAll('ü','Ü')
+    .replaceAll('ñ','Ñ').toUpperCase();
+
+  function parseDateDMY(s){
+    const m = /([0-3]?\d)[\/-]([01]?\d)[\/-](\d{4})/.exec(s||'');
+    if(!m) return null;
+    const d = +m[1], mo = +m[2]-1, y = +m[3];
+    const dt = new Date(y,mo,d);
+    return dt && dt.getFullYear()===y && dt.getMonth()===mo && dt.getDate()===d ? dt : null;
+  }
+  const daysInclusive = (a,b) => {
+    const d0 = new Date(a.getFullYear(),a.getMonth(),a.getDate());
+    const d1 = new Date(b.getFullYear(),b.getMonth(),b.getDate());
+    return Math.round((d1-d0)/86400000)+1;
+  };
+
+  function findCutIndex(name){
+    let cut = name.length;
+    for(const rx of AFTER_TOKENS){
+      const m = rx.exec(name);
+      if(m) cut = Math.min(cut, m.index);
+    }
+    const slashPack = /\s\/\s*\d+\s+\S+/i.exec(name);
+    if(slashPack) cut = Math.min(cut, slashPack.index);
+    return cut;
+  }
+
+  function recortarNombreBruto(line){
+    const raw = line.replace(/^\s*Terapia\/Medicamento:\s*/i,'').trim();
+    const pre = normalizeBrand(raw.slice(0, findCutIndex(raw)));
+
+    let last = null, m;
+    DOSE_RE.lastIndex = 0;
+    while((m = DOSE_RE.exec(pre))) last = m;
+
+    let base = last ? pre.slice(0, last.index + last[0].length) : pre;
+
+    if(ML_ONLY_RE.test(base) && !/(MG|G|MCG|µG|UG|U\.?I\.?|UI|%)/i.test(base)) base = pre;
+
+    base = base.replace(/\s*[\.;,:-]*\s*$/,'');
+    return toUpperEs(base) + '.';
+  }
+
+  function cleanPosologia(line){
+    let pos = line.replace(/^\s*Posolog[íi]a\/Observaciones:\s*/i,'').trim();
+    pos = pos.replace(/\bCR[ÓO]NICO\b/gi,' ').replace(/\s{2,}/g,' ').trim();
+
+    const dur = /durante\s+(\d{1,3})\s*d[ií]as?/i.exec(pos);
+    const explicitDays = dur ? parseInt(dur[1],10) : null;
+
+    pos = pos.replace(/\s*durante\s+\d{1,3}\s*d[ií]as?/gi,'').trim();
+
+    pos = pos
+      .replace(/capsulas?/gi, m=>m.toUpperCase())
+      .replace(/c[áa]psulas?/gi, m=>m.toUpperCase())
+      .replace(/comprimidos?/gi, m=>m.toUpperCase())
+      .replace(/tabletas?/gi, m=>m.toUpperCase())
+      .replace(/gotas?/gi, m=>m.toUpperCase())
+      .replace(/sobres?/gi, m=>m.toUpperCase())
+      .replace(/iny(e|é)cciones?/gi, m=>m.toUpperCase())
+      .replace(/\bml\b/gi,'mL')
+      .replace(/\bmg\b/gi,'MG')
+      .replace(/\bmcg\b/gi,'MCG')
+      .replace(/\bµg\b/gi,'µG')
+      .replace(/\bui\b/gi,'UI')
+      .replace(/u\.i\./gi,'U.I.');
+
+    // Normalitzar "dia/s" → "días"
+    pos = pos
+      .replace(/\bd[ií]a\s*\/\s*s(?:\s*\/\s*s)?\b/gi,'días')
+      .replace(/\bd[ií]a\/s\b/gi,'días')
+      .replace(/\bd[ií]as\b/gi,'días');
+
+    if(!/[.!?]$/.test(pos)) pos += '.';
+    return { pos, explicitDays };
+  }
+
+  function parseBlock(block){
+    const lines = block.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+    const nL = lines.find(s=>/^Terapia\/Medicamento:/i.test(s));
+    const pL = lines.find(s=>/^Posolog[íi]a\/Observaciones:/i.test(s));
+    const fi = lines.find(s=>/^Fecha\s+inicio:/i.test(s));
+    const ff = lines.find(s=>/^Fecha\s+fin:/i.test(s));
+    if(!nL || !pL) return null;
+
+    const name = recortarNombreBruto(nL);
+    const { pos, explicitDays } = cleanPosologia(pL);
+
+    const start = fi ? parseDateDMY(fi.split(':')[1]) : null;
+    const end   = ff ? parseDateDMY(ff.split(':')[1]) : null;
+
+    const abx = isAntibiotic(name);
+
+    let totalDays = null;
+    if(Number.isInteger(explicitDays)) totalDays = explicitDays;
+    else if(start && end) totalDays = daysInclusive(start, end);
+
+    let progress = '';
+    if(totalDays && totalDays <= 30 && start){
+      const today = new Date();
+      const current = Math.min(Math.max(1, daysInclusive(start, today)), totalDays);
+      progress = ` (día ${current} de ${totalDays})`;
+    }
+
+    return `-${name} ${pos}${progress}`.replace(/\s+\./g,'.');
+  }
+
+  function splitBlocks(text){
+    return text
+      .split(/(?=\n?\s*Terapia\/Medicamento\s*:)/i)
+      .map(s=>s.trim())
+      .filter(s=>/^Terapia\/Medicamento\s*:/i.test(s));
+  }
+
+  function simplify(text){
+    const blocks = splitBlocks(text);
+    const out = [];
+    let i=0;
+    for(const b of blocks){
+      i++;
+      const r = parseBlock(b);
+      if(r) out.push(r);
+      $('bar').style.width = `${Math.round(i/Math.max(1,blocks.length)*100)}%`;
+    }
+    return out.join('\n');
+  }
+
+  $('run').onclick = () => {
+    const res = simplify($('input').value.trim());
+    $('out').textContent = res || 'Sin resultados';
+    $('count').textContent = (res ? res.split(/\n/).length : 0) + ' líneas';
+    $('ts').textContent = new Date().toLocaleString();
+  };
+  $('copy').onclick = () => navigator.clipboard.writeText(($('out').textContent||''));
+  $('txt').onclick = () => {
+    const blob = new Blob([$('out').textContent||''], {type:'text/plain;charset=utf-8'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'simplificado.txt'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 500);
+  };
+  $('clear').onclick = () => { $('input').value=''; $('out').textContent=''; $('count').textContent='0 líneas'; $('bar').style.width='0%'; };
+});
 </script>
 </body>
 </html>
+
